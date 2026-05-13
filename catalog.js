@@ -22,16 +22,23 @@
 
   function showBrand(brand) {
     brandButtons.forEach(function (button) {
-      button.classList.toggle('is-active', button.dataset.brandTarget === brand);
+      button.classList.toggle(
+        'is-active',
+        button.dataset.brandTarget === brand
+      );
     });
 
     brandSections.forEach(function (section) {
-      section.classList.toggle('is-active', section.dataset.brandSection === brand);
+      section.classList.toggle(
+        'is-active',
+        section.dataset.brandSection === brand
+      );
     });
   }
 
   function renderSummary() {
     const products = Object.values(selectedProducts);
+
     summaryList.innerHTML = '';
 
     if (!products.length) {
@@ -50,13 +57,31 @@
       const item = document.createElement('li');
 
       item.innerHTML = `
-        <span>
-          <strong>${product.name}</strong><br>
-          Merk: ${product.brand}<br>
-          Formaat: ${product.format}<br>
-          Aantal: ${product.quantity}
-        </span>
-        <button type="button" class="cl-summary__remove" data-key="${product.key}">Verwijderen</button>
+        <img 
+          class="cl-summary__image" 
+          src="${product.image || 'https://via.placeholder.com/120x120?text=Geen+afbeelding'}" 
+          alt="${product.name}"
+        >
+
+        <div>
+          <div class="cl-summary__product-title">
+            ${product.name}
+          </div>
+
+          <div class="cl-summary__product-meta">
+            Merk: ${product.brand}<br>
+            Formaat: ${product.format}<br>
+            Aantal: ${product.quantity}
+          </div>
+        </div>
+
+        <button 
+          type="button" 
+          class="cl-summary__remove" 
+          data-key="${product.key}"
+        >
+          Verwijderen
+        </button>
       `;
 
       summaryList.appendChild(item);
@@ -74,7 +99,9 @@
     ];
 
     products.forEach(function (product) {
-      lines.push(`- ${product.brand} - ${product.name} | Formaat: ${product.format} | Aantal: ${product.quantity}`);
+      lines.push(
+        `- ${product.brand} - ${product.name} | Formaat: ${product.format} | Aantal: ${product.quantity}`
+      );
     });
 
     lines.push('');
@@ -98,8 +125,12 @@
 
     modalImage.src = image ? image.src : '';
     modalImage.alt = card.dataset.productName || '';
-    modalTitle.textContent = card.dataset.productName || '';
-    modalDescription.textContent = card.dataset.description || '';
+
+    modalTitle.textContent =
+      card.dataset.productName || '';
+
+    modalDescription.textContent =
+      card.dataset.description || '';
 
     const specs = [
       ['Merk', card.dataset.brand],
@@ -114,9 +145,16 @@
     ];
 
     modalSpecs.innerHTML = specs
-      .filter(function (spec) { return spec[1]; })
+      .filter(function (spec) {
+        return spec[1];
+      })
       .map(function (spec) {
-        return `<div class="cl-modal__spec"><strong>${spec[0]}</strong>${spec[1]}</div>`;
+        return `
+          <div class="cl-modal__spec">
+            <strong>${spec[0]}</strong>
+            ${spec[1]}
+          </div>
+        `;
       })
       .join('');
 
@@ -141,8 +179,15 @@
 
     if (addButton) {
       const card = addButton.closest('.cl-product-card');
-      const quantityInput = card.querySelector('input[type="number"]');
-      const quantity = parseInt(quantityInput.value, 10) || 1;
+
+      const quantityInput =
+        card.querySelector('input[type="number"]');
+
+      const quantity =
+        parseInt(quantityInput.value, 10) || 1;
+
+      const image =
+        card.querySelector('.cl-product-card__image');
 
       const key = card.dataset.productName;
 
@@ -152,18 +197,24 @@
         code: card.dataset.productCode || '',
         brand: card.dataset.brand || '',
         format: card.dataset.format || '',
-        quantity: quantity
+        quantity: quantity,
+        image: image ? image.src : ''
       };
 
       renderSummary();
     }
 
     if (detailsButton) {
-      openDetails(detailsButton.closest('.cl-product-card'));
+      openDetails(
+        detailsButton.closest('.cl-product-card')
+      );
     }
 
     if (removeButton) {
-      delete selectedProducts[removeButton.dataset.key];
+      delete selectedProducts[
+        removeButton.dataset.key
+      ];
+
       renderSummary();
     }
   });
@@ -171,11 +222,15 @@
   modalClose.addEventListener('click', closeDetails);
 
   modal.addEventListener('click', function (event) {
-    if (event.target === modal) closeDetails();
+    if (event.target === modal) {
+      closeDetails();
+    }
   });
 
   document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape') closeDetails();
+    if (event.key === 'Escape') {
+      closeDetails();
+    }
   });
 
   renderSummary();
