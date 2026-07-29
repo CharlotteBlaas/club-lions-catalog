@@ -42,12 +42,52 @@
       };
     }
 
-    const values = {
-      customerNumber: customerDataElement.dataset.customerNumber || '',
-      customerName: customerDataElement.dataset.customerName || '',
-      companyName: customerDataElement.dataset.companyName || '',
-      phone: customerDataElement.dataset.phone || ''
-    };
+    function getPlaceholderValue(selector) {
+  const element = catalog.querySelector(selector);
+
+  if (!element) {
+    return '';
+  }
+
+  const value = element.textContent.trim();
+
+  if (
+    !value ||
+    value.includes('{User.') ||
+    value.toLowerCase() === 'null' ||
+    value.toLowerCase() === 'undefined'
+  ) {
+    return '';
+  }
+
+  return value;
+}
+
+const firstName = getPlaceholderValue(
+  '.cl-customer-data__first-name'
+);
+
+const lastName = getPlaceholderValue(
+  '.cl-customer-data__last-name'
+);
+
+const customer = {
+  number: getPlaceholderValue(
+    '.cl-customer-data__number'
+  ),
+
+  name: [firstName, lastName]
+    .filter(Boolean)
+    .join(' '),
+
+  company: getPlaceholderValue(
+    '.cl-customer-data__company'
+  ),
+
+  phone: getPlaceholderValue(
+    '.cl-customer-data__phone'
+  )
+};
 
     Object.keys(values).forEach(function (key) {
       if (isUnresolvedPlaceholder(values[key])) {
