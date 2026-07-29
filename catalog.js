@@ -1,135 +1,161 @@
 (function () {
   const catalog = document.querySelector('#clAssortment');
-  if (!catalog) return;
+
+  if (!catalog) {
+    return;
+  }
 
   const selectedProducts = {};
+
+  /*
+   * PAS DIT E-MAILADRES AAN
+   */
+  const mailTo = 'bestellingen@example.com';
+
+  const mailSubject = 'Bestelaanvraag Club Lions assortiment';
+
+  const brandButtons =
+    catalog.querySelectorAll('.cl-brand-card');
+
+  const brandSections =
+    catalog.querySelectorAll('.cl-products-section');
+
+  const summaryList =
+    catalog.querySelector('.cl-summary__list');
+
+  const emptyText =
+    catalog.querySelector('.cl-summary__empty');
+
+  const mailButton =
+    catalog.querySelector('.cl-summary__mail');
+
+  const modal =
+    catalog.querySelector('#clProductModal');
+
+  const modalClose =
+    catalog.querySelector('.cl-modal__close');
+
+  const modalImage =
+    catalog.querySelector('.cl-modal__image');
+
+  const modalTitle =
+    catalog.querySelector('.cl-modal__title');
+
+  const modalDescription =
+    catalog.querySelector('.cl-modal__description');
+
+  const modalSpecs =
+    catalog.querySelector('.cl-modal__specs');
+
   let activeModalCard = null;
   let lastFocusedElement = null;
 
-  const mailTo = 'bestellingen@example.com'; // Vervang door het definitieve besteladres.
-  const mailSubject = 'Bestelaanvraag Club Lions assortiment';
+  /*
+   * Leest een Sparco-placeholder uit de HTML.
+   *
+   * Wanneer de placeholder nog niet vervangen is,
+   * wordt een lege waarde teruggegeven.
+   */
+  function getPlaceholderValue(selector) {
+    const element = catalog.querySelector(selector);
 
-  const brandButtons = catalog.querySelectorAll('.cl-brand-card');
-  const brandSections = catalog.querySelectorAll('.cl-products-section');
-
-  const summaryList = catalog.querySelector('.cl-summary__list');
-  const emptyText = catalog.querySelector('.cl-summary__empty');
-  const mailButton = catalog.querySelector('.cl-summary__mail');
-  const customerDataElement = catalog.querySelector('.cl-customer-data');
-
-  const modal = catalog.querySelector('#clProductModal');
-  const modalContent = catalog.querySelector('.cl-modal__content');
-  const modalClose = catalog.querySelector('.cl-modal__close');
-  const modalImage = catalog.querySelector('.cl-modal__image');
-  const modalImagePlaceholder = catalog.querySelector('.cl-modal__image-placeholder');
-  const modalTitle = catalog.querySelector('.cl-modal__title');
-  const modalDescription = catalog.querySelector('.cl-modal__description');
-  const modalSpecs = catalog.querySelector('.cl-modal__specs');
-  const modalQuantity = catalog.querySelector('.cl-modal__quantity');
-  const modalAddButton = catalog.querySelector('.cl-modal__add');
-
-  function isUnresolvedPlaceholder(value) {
-    return !value || /^\s*[\{\[].*[\}\]]\s*$/.test(value);
-  }
-
-  function getCustomerData() {
-    if (!customerDataElement) {
-      return {
-        customerNumber: '',
-        customerName: '',
-        companyName: '',
-        phone: ''
-      };
+    if (!element) {
+      return '';
     }
 
-    function getPlaceholderValue(selector) {
-  const element = catalog.querySelector(selector);
+    const value = element.textContent
+      .replace(/\u00a0/g, ' ')
+      .trim();
 
-  if (!element) {
-    return '';
+    if (
+      !value ||
+      value.includes('{User.') ||
+      value.toLowerCase() === 'null' ||
+      value.toLowerCase() === 'undefined'
+    ) {
+      return '';
+    }
+
+    return value;
   }
 
-  const value = element.textContent.trim();
+  /*
+   * De klantgegevens worden pas gelezen wanneer
+   * de e-maillink wordt opgebouwd.
+   *
+   * Daardoor krijgt Sparco voldoende tijd om de
+   * placeholders in de pagina te vervangen.
+   */
+  function getCustomerData() {
+    const firstName = getPlaceholderValue(
+      '.cl-customer-data__first-name'
+    );
 
-  if (
-    !value ||
-    value.includes('{User.') ||
-    value.toLowerCase() === 'null' ||
-    value.toLowerCase() === 'undefined'
-  ) {
-    return '';
-  }
-
-  return value;
-}
-
-const firstName = getPlaceholderValue(
-  '.cl-customer-data__first-name'
-);
-
-const lastName = getPlaceholderValue(
-  '.cl-customer-data__last-name'
-);
-
-const customer = {
-  number: getPlaceholderValue(
-    '.cl-customer-data__number'
-  ),
-
-  name: [firstName, lastName]
-    .filter(Boolean)
-    .join(' '),
-
-  company: getPlaceholderValue(
-    '.cl-customer-data__company'
-  ),
-
-  phone: getPlaceholderValue(
-    '.cl-customer-data__phone'
-  )
-};
-
-    Object.keys(values).forEach(function (key) {
-      if (isUnresolvedPlaceholder(values[key])) {
-        values[key] = '';
-      }
-    });
-
-    return values;
-  }
-
-  function getProductImage(card) {
-    const image = card.querySelector('img.cl-product-card__image');
-    return image ? image.src : '';
-  }
-
-  function getProductFromCard(card, quantity) {
-    const code = card.dataset.productCode || 'XXXXXXX';
-    const name = card.dataset.productName || '';
-    const key = code + '|' + name;
+    const lastName = getPlaceholderValue(
+      '.cl-customer-data__last-name'
+    );
 
     return {
-      key: key,
-      name: name,
-      code: code,
-      brand: card.dataset.brand || '',
-      format: card.dataset.format || '',
-      quantity: Math.max(1, parseInt(quantity, 10) || 1),
-      image: getProductImage(card)
+      number: getPlaceholderValue(
+        '.cl-customer-data__number'
+      ),
+
+      name: [firstName, lastName]
+        .filter(Boolean)
+        .join(' '),
+
+      company: getPlaceholderValue(
+        '.cl-customer-data__company'
+      ),
+
+      phone: getPlaceholderValue(
+        '.cl-customer-data__phone'
+      )
     };
   }
 
-  function addProduct(card, quantity) {
-    const product = getProductFromCard(card, quantity);
-    selectedProducts[product.key] = product;
-    renderSummary();
+  function getProductCode(card) {
+    const code =
+      (card.dataset.productCode || '').trim();
+
+    return code || 'XXXXXXX';
+  }
+
+  function getCardImage(card) {
+    const image = card.querySelector(
+      'img.cl-product-card__image'
+    );
+
+    return image ? image.src : '';
+  }
+
+  function getCardQuantity(card) {
+    const quantityInput = card.querySelector(
+      'input[type="number"]'
+    );
+
+    const quantity = parseInt(
+      quantityInput ? quantityInput.value : '1',
+      10
+    );
+
+    return Math.max(1, quantity || 1);
   }
 
   function showBrand(brand) {
     brandButtons.forEach(function (button) {
-      const isActive = button.dataset.brandTarget === brand;
-      button.classList.toggle('is-active', isActive);
-      button.setAttribute('aria-pressed', String(isActive));
+      const isActive =
+        button.dataset.brandTarget === brand;
+
+      button.classList.toggle(
+        'is-active',
+        isActive
+      );
+
+      button.setAttribute(
+        'aria-pressed',
+        String(isActive)
+      );
     });
 
     brandSections.forEach(function (section) {
@@ -140,48 +166,133 @@ const customer = {
     });
   }
 
+  function addProductFromCard(card, quantity) {
+    if (!card) {
+      return;
+    }
+
+    const key = [
+      card.dataset.brand || '',
+      card.dataset.productName || ''
+    ].join('::');
+
+    selectedProducts[key] = {
+      key: key,
+      name: card.dataset.productName || '',
+      code: getProductCode(card),
+      brand: card.dataset.brand || '',
+      format: card.dataset.format || '',
+      quantity: Math.max(
+        1,
+        parseInt(quantity, 10) || 1
+      ),
+      image: getCardImage(card)
+    };
+
+    renderSummary();
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   function renderSummary() {
-    const products = Object.values(selectedProducts);
+    if (
+      !summaryList ||
+      !emptyText ||
+      !mailButton
+    ) {
+      return;
+    }
+
+    const products =
+      Object.values(selectedProducts);
+
     summaryList.innerHTML = '';
 
     if (!products.length) {
       emptyText.style.display = 'block';
+
       mailButton.style.opacity = '0.5';
       mailButton.style.pointerEvents = 'none';
-      mailButton.setAttribute('aria-disabled', 'true');
+
+      mailButton.setAttribute(
+        'aria-disabled',
+        'true'
+      );
+
       mailButton.href = '#';
+
       return;
     }
 
     emptyText.style.display = 'none';
+
     mailButton.style.opacity = '1';
     mailButton.style.pointerEvents = 'auto';
-    mailButton.removeAttribute('aria-disabled');
+
+    mailButton.removeAttribute(
+      'aria-disabled'
+    );
 
     products.forEach(function (product) {
       const item = document.createElement('li');
 
-      const imageMarkup = product.image
-        ? `<img class="cl-summary__image" src="${product.image}" alt="">`
-        : `<div class="cl-summary__image-placeholder" aria-hidden="true">${product.brand}</div>`;
+      const safeName =
+        escapeHtml(product.name);
+
+      const safeCode =
+        escapeHtml(product.code);
+
+      const safeBrand =
+        escapeHtml(product.brand);
+
+      const safeFormat =
+        escapeHtml(product.format);
+
+      const imageHtml = product.image
+        ? `
+          <img
+            class="cl-summary__image"
+            src="${escapeHtml(product.image)}"
+            alt="${safeName}"
+          >
+        `
+        : `
+          <div
+            class="cl-summary__image-placeholder"
+            aria-hidden="true"
+          >
+            Geen afbeelding
+          </div>
+        `;
 
       item.innerHTML = `
-        ${imageMarkup}
+        ${imageHtml}
+
         <div>
           <div class="cl-summary__product-title">
-            ${product.name}
+            ${safeName}
           </div>
+
           <div class="cl-summary__product-meta">
-            Artikelnummer: ${product.code}<br>
-            Merk: ${product.brand}<br>
-            Formaat: ${product.format}<br>
+            Artikelnummer: ${safeCode}<br>
+            Merk: ${safeBrand}<br>
+            Formaat: ${safeFormat}<br>
             Aantal kisten: ${product.quantity}
           </div>
         </div>
+
         <button
           type="button"
           class="cl-summary__remove"
-          data-key="${product.key}"
+          data-key="${escapeHtml(product.key)}"
+          aria-label="${safeName} verwijderen"
         >
           Verwijderen
         </button>
@@ -195,6 +306,7 @@ const customer = {
 
   function updateMailLink(products) {
     const customer = getCustomerData();
+
     const lines = [
       'Beste Customer Service,',
       '',
@@ -210,12 +322,41 @@ const customer = {
 
     lines.push('');
     lines.push('Klantgegevens:');
-    lines.push('Klantnummer: ' + (customer.customerNumber || 'Niet automatisch beschikbaar'));
-    lines.push('Naam: ' + (customer.customerName || 'Niet automatisch beschikbaar'));
-    lines.push('Bedrijf: ' + (customer.companyName || 'Niet automatisch beschikbaar'));
-    lines.push('Telefoonnummer: ' + (customer.phone || 'Niet automatisch beschikbaar'));
+
+    lines.push(
+      `Klantnummer: ${
+        customer.number ||
+        'Niet automatisch beschikbaar'
+      }`
+    );
+
+    lines.push(
+      `Naam: ${
+        customer.name ||
+        'Niet automatisch beschikbaar'
+      }`
+    );
+
+    lines.push(
+      `Bedrijf: ${
+        customer.company ||
+        'Niet automatisch beschikbaar'
+      }`
+    );
+
+    lines.push(
+      `Telefoonnummer: ${
+        customer.phone ||
+        'Niet automatisch beschikbaar'
+      }`
+    );
+
     lines.push('');
     lines.push('Met vriendelijke groet,');
+
+    if (customer.name) {
+      lines.push(customer.name);
+    }
 
     mailButton.href =
       'mailto:' +
@@ -223,183 +364,499 @@ const customer = {
       '?subject=' +
       encodeURIComponent(mailSubject) +
       '&body=' +
-      encodeURIComponent(lines.join('\n'));
+      encodeURIComponent(
+        lines.join('\n')
+      );
+  }
+
+  function ensureModalOrderControls() {
+    if (!modal || !modalSpecs) {
+      return null;
+    }
+
+    let controls = modal.querySelector(
+      '.cl-modal__order'
+    );
+
+    if (!controls) {
+      controls = document.createElement('div');
+
+      controls.className =
+        'cl-modal__order';
+
+      controls.innerHTML = `
+        <label class="cl-modal__quantity-label">
+          Aantal kisten
+
+          <input
+            class="cl-modal__quantity"
+            type="number"
+            min="1"
+            value="1"
+            inputmode="numeric"
+          >
+        </label>
+
+        <small class="cl-modal__quantity-note">
+          Een aantal van 1 staat voor 1 complete kist.
+        </small>
+
+        <button
+          class="cl-btn cl-modal__add"
+          type="button"
+        >
+          Toevoegen aan aanvraag
+        </button>
+      `;
+
+      modalSpecs.insertAdjacentElement(
+        'afterend',
+        controls
+      );
+    }
+
+    return controls;
   }
 
   function openDetails(card) {
-    activeModalCard = card;
-    lastFocusedElement = document.activeElement;
-
-    const imageUrl = getProductImage(card);
-    const productName = card.dataset.productName || '';
-
-    if (imageUrl) {
-      modalImage.src = imageUrl;
-      modalImage.alt = productName;
-      modalImage.style.display = 'block';
-      modalImagePlaceholder.style.display = 'none';
-    } else {
-      modalImage.removeAttribute('src');
-      modalImage.alt = '';
-      modalImage.style.display = 'none';
-      modalImagePlaceholder.textContent = card.dataset.brand || productName;
-      modalImagePlaceholder.style.display = 'flex';
+    if (!modal || !card) {
+      return;
     }
 
-    modalTitle.textContent = productName;
-    modalDescription.textContent = card.dataset.description || '';
-    modalQuantity.value = 1;
+    activeModalCard = card;
+    lastFocusedElement =
+      document.activeElement;
+
+    const image = card.querySelector(
+      'img.cl-product-card__image'
+    );
+
+    const imagePlaceholder =
+      modal.querySelector(
+        '.cl-modal__image-placeholder'
+      );
+
+    if (image && modalImage) {
+      modalImage.src = image.src;
+
+      modalImage.alt =
+        card.dataset.productName || '';
+
+      modalImage.style.display = '';
+
+      if (imagePlaceholder) {
+        imagePlaceholder.style.display =
+          'none';
+      }
+    } else {
+      if (modalImage) {
+        modalImage.removeAttribute('src');
+        modalImage.alt = '';
+        modalImage.style.display = 'none';
+      }
+
+      if (imagePlaceholder) {
+        imagePlaceholder.textContent =
+          card.dataset.brand ||
+          'Geen afbeelding';
+
+        imagePlaceholder.style.display =
+          'flex';
+      }
+    }
+
+    if (modalTitle) {
+      modalTitle.textContent =
+        card.dataset.productName || '';
+    }
+
+    if (modalDescription) {
+      modalDescription.textContent =
+        card.dataset.description || '';
+    }
 
     const specs = [
       ['Merk', card.dataset.brand],
-      ['Artikelnummer', card.dataset.productCode || 'XXXXXXX'],
-      ['Besteleenheid', 'Per kist (1 = 1 kist)'],
-      ['Sigarenformaat', card.dataset.format],
+
+      [
+        'Artikelnummer',
+        getProductCode(card)
+      ],
+
+      [
+        'Sigarenformaat',
+        card.dataset.format
+      ],
+
+      [
+        'Besteleenheid',
+        'Per complete kist'
+      ],
+
       ['Herkomst', card.dataset.origin],
-      ['Type dekblad', card.dataset.wrapper],
+
+      [
+        'Type dekblad',
+        card.dataset.wrapper
+      ],
+
       ['Omblad', card.dataset.binder],
-      ['Binnengoed', card.dataset.filler],
-      ['Smaakprofiel', card.dataset.flavour],
-      ['Smaakbeleving', card.dataset.strength]
+
+      [
+        'Binnengoed',
+        card.dataset.filler
+      ],
+
+      [
+        'Smaakprofiel',
+        card.dataset.flavour
+      ],
+
+      [
+        'Smaakbeleving',
+        card.dataset.strength
+      ]
     ];
 
-    modalSpecs.innerHTML = specs
-      .filter(function (spec) {
-        return spec[1];
-      })
-      .map(function (spec) {
-        return `
-          <div class="cl-modal__spec">
-            <strong>${spec[0]}</strong>
-            ${spec[1]}
-          </div>
-        `;
-      })
-      .join('');
+    if (modalSpecs) {
+      modalSpecs.innerHTML = specs
+        .filter(function (spec) {
+          return spec[1];
+        })
+        .map(function (spec) {
+          return `
+            <div class="cl-modal__spec">
+              <strong>
+                ${escapeHtml(spec[0])}
+              </strong>
+
+              ${escapeHtml(spec[1])}
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    const controls =
+      ensureModalOrderControls();
+
+    const modalQuantity = controls
+      ? controls.querySelector(
+          '.cl-modal__quantity'
+        )
+      : null;
+
+    if (modalQuantity) {
+      modalQuantity.value =
+        getCardQuantity(card);
+
+      modalQuantity.setAttribute(
+        'aria-label',
+        `Aantal kisten ${
+          card.dataset.productName ||
+          'product'
+        }`
+      );
+    }
 
     modal.classList.add('is-open');
-    document.body.style.overflow = 'hidden';
-    modalClose.focus();
+
+    modal.setAttribute(
+      'aria-hidden',
+      'false'
+    );
+
+    document.body.style.overflow =
+      'hidden';
+
+    if (modalClose) {
+      window.setTimeout(function () {
+        modalClose.focus();
+      }, 0);
+    }
   }
 
   function closeDetails() {
+    if (
+      !modal ||
+      !modal.classList.contains('is-open')
+    ) {
+      return;
+    }
+
     modal.classList.remove('is-open');
+
+    modal.setAttribute(
+      'aria-hidden',
+      'true'
+    );
+
     document.body.style.overflow = '';
+
     activeModalCard = null;
 
-    if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+    if (
+      lastFocusedElement &&
+      typeof lastFocusedElement.focus ===
+        'function'
+    ) {
       lastFocusedElement.focus();
     }
   }
 
-  function makeProductCardsInteractive() {
-    catalog.querySelectorAll('.cl-product-card').forEach(function (card) {
-      const clickableElements = [
-        card.querySelector('.cl-product-card__image'),
-        card.querySelector('h3')
-      ];
-
-      clickableElements.forEach(function (element) {
-        if (!element) return;
-        element.setAttribute('tabindex', '0');
-        element.setAttribute('role', 'button');
-        element.setAttribute(
-          'aria-label',
-          'Bekijk details van ' + (card.dataset.productName || 'dit product')
+  catalog.addEventListener(
+    'click',
+    function (event) {
+      const brandButton =
+        event.target.closest(
+          '.cl-brand-card'
         );
-      });
+
+      const addButton =
+        event.target.closest(
+          '.cl-add-product'
+        );
+
+      const detailsButton =
+        event.target.closest(
+          '.cl-open-details'
+        );
+
+      const productImage =
+        event.target.closest(
+          '.cl-product-card__image'
+        );
+
+      const productTitle =
+        event.target.closest(
+          '.cl-product-card h3'
+        );
+
+      const removeButton =
+        event.target.closest(
+          '.cl-summary__remove'
+        );
+
+      const modalAddButton =
+        event.target.closest(
+          '.cl-modal__add'
+        );
+
+      if (brandButton) {
+        showBrand(
+          brandButton.dataset.brandTarget
+        );
+
+        return;
+      }
+
+      if (addButton) {
+        const card = addButton.closest(
+          '.cl-product-card'
+        );
+
+        addProductFromCard(
+          card,
+          getCardQuantity(card)
+        );
+
+        return;
+      }
+
+      if (
+        detailsButton ||
+        productImage ||
+        productTitle
+      ) {
+        const clickedElement =
+          detailsButton ||
+          productImage ||
+          productTitle;
+
+        const card = clickedElement.closest(
+          '.cl-product-card'
+        );
+
+        if (card) {
+          openDetails(card);
+        }
+
+        return;
+      }
+
+      if (removeButton) {
+        delete selectedProducts[
+          removeButton.dataset.key
+        ];
+
+        renderSummary();
+
+        return;
+      }
+
+      if (
+        modalAddButton &&
+        activeModalCard
+      ) {
+        const modalQuantity =
+          modal.querySelector(
+            '.cl-modal__quantity'
+          );
+
+        const quantity =
+          modalQuantity
+            ? modalQuantity.value
+            : 1;
+
+        addProductFromCard(
+          activeModalCard,
+          quantity
+        );
+
+        const cardQuantity =
+          activeModalCard.querySelector(
+            'input[type="number"]'
+          );
+
+        if (cardQuantity) {
+          cardQuantity.value = Math.max(
+            1,
+            parseInt(quantity, 10) || 1
+          );
+        }
+
+        closeDetails();
+      }
+    }
+  );
+
+  catalog.addEventListener(
+    'keydown',
+    function (event) {
+      const productImage =
+        event.target.closest(
+          '.cl-product-card__image'
+        );
+
+      const productTitle =
+        event.target.closest(
+          '.cl-product-card h3'
+        );
+
+      if (
+        (productImage || productTitle) &&
+        (
+          event.key === 'Enter' ||
+          event.key === ' '
+        )
+      ) {
+        event.preventDefault();
+
+        const card =
+          event.target.closest(
+            '.cl-product-card'
+          );
+
+        if (card) {
+          openDetails(card);
+        }
+      }
+    }
+  );
+
+  /*
+   * Maakt afbeeldingen en producttitels
+   * ook via het toetsenbord klikbaar.
+   */
+  catalog
+    .querySelectorAll(
+      '.cl-product-card'
+    )
+    .forEach(function (card) {
+      const image = card.querySelector(
+        '.cl-product-card__image'
+      );
+
+      const title =
+        card.querySelector('h3');
+
+      const productName =
+        card.dataset.productName ||
+        'product';
+
+      [image, title].forEach(
+        function (element) {
+          if (!element) {
+            return;
+          }
+
+          element.setAttribute(
+            'role',
+            'button'
+          );
+
+          element.setAttribute(
+            'tabindex',
+            '0'
+          );
+
+          element.setAttribute(
+            'aria-label',
+            `Bekijk details van ${productName}`
+          );
+        }
+      );
+
+      if (!card.dataset.productCode) {
+        card.dataset.productCode =
+          'XXXXXXX';
+      }
     });
+
+  brandButtons.forEach(
+    function (button) {
+      button.setAttribute(
+        'aria-pressed',
+        button.classList.contains(
+          'is-active'
+        )
+          ? 'true'
+          : 'false'
+      );
+    }
+  );
+
+  if (modalClose) {
+    modalClose.addEventListener(
+      'click',
+      closeDetails
+    );
   }
 
-  catalog.addEventListener('click', function (event) {
-    const brandButton = event.target.closest('.cl-brand-card');
-    const addButton = event.target.closest('.cl-add-product');
-    const detailsButton = event.target.closest('.cl-open-details');
-    const clickableProduct = event.target.closest(
-      '.cl-product-card__image, .cl-product-card h3'
-    );
-    const removeButton = event.target.closest('.cl-summary__remove');
-
-    if (brandButton) {
-      showBrand(brandButton.dataset.brandTarget);
-      return;
-    }
-
-    if (addButton) {
-      const card = addButton.closest('.cl-product-card');
-      const quantityInput = card.querySelector('input[type="number"]');
-      addProduct(card, quantityInput ? quantityInput.value : 1);
-      return;
-    }
-
-    if (detailsButton) {
-      openDetails(detailsButton.closest('.cl-product-card'));
-      return;
-    }
-
-    if (clickableProduct) {
-      openDetails(clickableProduct.closest('.cl-product-card'));
-      return;
-    }
-
-    if (removeButton) {
-      delete selectedProducts[removeButton.dataset.key];
-      renderSummary();
-    }
-  });
-
-  catalog.addEventListener('keydown', function (event) {
-    const clickableProduct = event.target.closest(
-      '.cl-product-card__image, .cl-product-card h3'
+  if (modal) {
+    modal.setAttribute(
+      'aria-hidden',
+      'true'
     );
 
-    if (
-      clickableProduct &&
-      (event.key === 'Enter' || event.key === ' ')
-    ) {
-      event.preventDefault();
-      openDetails(clickableProduct.closest('.cl-product-card'));
-    }
-  });
-
-  modalAddButton.addEventListener('click', function () {
-    if (!activeModalCard) return;
-    addProduct(activeModalCard, modalQuantity.value);
-    closeDetails();
-  });
-
-  modalClose.addEventListener('click', closeDetails);
-
-  modal.addEventListener('click', function (event) {
-    if (event.target === modal) {
-      closeDetails();
-    }
-  });
-
-  modalContent.addEventListener('keydown', function (event) {
-    if (event.key !== 'Tab') return;
-
-    const focusable = modalContent.querySelectorAll(
-      'button, input, [href], [tabindex]:not([tabindex="-1"])'
+    modal.addEventListener(
+      'click',
+      function (event) {
+        if (event.target === modal) {
+          closeDetails();
+        }
+      }
     );
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
+  }
 
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
+  document.addEventListener(
+    'keydown',
+    function (event) {
+      if (event.key === 'Escape') {
+        closeDetails();
+      }
     }
-  });
+  );
 
-  document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape' && modal.classList.contains('is-open')) {
-      closeDetails();
-    }
-  });
-
-  makeProductCardsInteractive();
   renderSummary();
 })();
