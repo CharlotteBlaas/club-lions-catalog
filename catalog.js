@@ -12,7 +12,7 @@
    */
   const mailTo = 'bestellingen@example.com';
 
-  const mailSubject = 'Bestelaanvraag Club Lions assortiment';
+  const baseMailSubject = 'Bestelaanvraag Club Lions';
 
   const brandButtons =
     catalog.querySelectorAll('.cl-brand-card');
@@ -52,9 +52,6 @@
 
   /*
    * Leest een Sparco-placeholder uit de HTML.
-   *
-   * Wanneer de placeholder nog niet vervangen is,
-   * wordt een lege waarde teruggegeven.
    */
   function getPlaceholderValue(selector) {
     const element = catalog.querySelector(selector);
@@ -80,11 +77,8 @@
   }
 
   /*
-   * De klantgegevens worden pas gelezen wanneer
+   * Klantgegevens worden pas opgehaald wanneer
    * de e-maillink wordt opgebouwd.
-   *
-   * Daardoor krijgt Sparco voldoende tijd om de
-   * placeholders in de pagina te vervangen.
    */
   function getCustomerData() {
     const firstName = getPlaceholderValue(
@@ -306,6 +300,19 @@
 
   function updateMailLink(products) {
     const customer = getCustomerData();
+
+    /*
+     * Onderwerp opbouwen:
+     * Bestelaanvraag Club Lions - klantnummer - bedrijfsnaam
+     */
+    const subjectParts = [
+      baseMailSubject,
+      customer.number,
+      customer.company
+    ].filter(Boolean);
+
+    const mailSubject =
+      subjectParts.join(' - ');
 
     const lines = [
       'Beste Customer Service,',
@@ -764,10 +771,6 @@
     }
   );
 
-  /*
-   * Maakt afbeeldingen en producttitels
-   * ook via het toetsenbord klikbaar.
-   */
   catalog
     .querySelectorAll(
       '.cl-product-card'
