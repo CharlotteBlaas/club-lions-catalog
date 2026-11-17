@@ -6,6 +6,7 @@
   }
 
   const selectedProducts = Object.create(null);
+  const isFrenchPage = catalog.lang === 'fr-BE';
 
   const hmcCategories = ['hmc-benl', 'hmc-befr'];
   const mrcCategories = ['shortfiller-benl', 'shortfiller-befr', 'pijptabak-benl', 'pijptabak-befr'];
@@ -31,7 +32,7 @@
    */
   const mailTo = '';
 
-  const baseMailSubject = 'Bestelaanvraag Club Lions';
+  const baseMailSubject = isFrenchPage ? 'Demande de commande Club Lions' : 'Bestelaanvraag Club Lions';
 
   const brandButtons =
     catalog.querySelectorAll('.cl-brand-card');
@@ -163,7 +164,9 @@
     return categoriesByAssortment.get(assortment) || [];
   }
 
-  const allowedCategories = getAllowedCategories();
+  const permittedCategories = getAllowedCategories();
+  const allowedCategories = Array.from(categoryButtons, button => button.dataset.assortmentTarget)
+    .filter(category => permittedCategories.includes(category));
 
   function showBrand(brand) {
     brandButtons.forEach(function (button) {
@@ -211,7 +214,9 @@
     brandGrid.hidden = !firstBrand;
     assortmentStatus.hidden = Boolean(firstBrand);
     if (!firstBrand) {
-      assortmentStatus.textContent = 'Er staan momenteel geen producten in dit tabblad.';
+      assortmentStatus.textContent = isFrenchPage
+        ? 'Cette catégorie ne contient actuellement aucun produit.'
+        : 'Er staan momenteel geen producten in dit tabblad.';
     }
     summary.hidden = !firstBrand && !Object.keys(selectedProducts).length;
   }
@@ -322,7 +327,7 @@
             class="cl-summary__image-placeholder"
             aria-hidden="true"
           >
-            Geen afbeelding
+            ${isFrenchPage ? 'Aucune image' : 'Geen afbeelding'}
           </div>
         `;
 
@@ -335,11 +340,11 @@
           </div>
 
           <div class="cl-summary__product-meta">
-            Artikelnummer: ${safeCode}<br>
-            Merk: ${safeBrand}<br>
-            ${safeFormat ? 'Formaat: ' + safeFormat + '<br>' : ''}
-            Aantal besteleenheden: ${product.quantity}<br>
-            Stuks per besteleenheid: ${escapeHtml(product.packSize)}
+            ${isFrenchPage ? 'Référence' : 'Artikelnummer'}: ${safeCode}<br>
+            ${isFrenchPage ? 'Marque' : 'Merk'}: ${safeBrand}<br>
+            ${safeFormat ? `${isFrenchPage ? 'Format' : 'Formaat'}: ${safeFormat}<br>` : ''}
+            ${isFrenchPage ? 'Quantité à commander' : 'Aantal besteleenheden'}: ${product.quantity}<br>
+            ${isFrenchPage ? 'Pièces par unité de commande' : 'Stuks per besteleenheid'}: ${escapeHtml(product.packSize)}
           </div>
         </div>
 
@@ -347,9 +352,9 @@
           type="button"
           class="cl-summary__remove"
           data-key="${escapeHtml(product.key)}"
-          aria-label="${safeName} verwijderen"
+          aria-label="${isFrenchPage ? `Supprimer ${safeName}` : `${safeName} verwijderen`}"
         >
-          Verwijderen
+          ${isFrenchPage ? 'Supprimer' : 'Verwijderen'}
         </button>
       `;
 
@@ -384,53 +389,36 @@
       subjectParts.join(' - ');
 
     const lines = [
-      'Beste Customer Service,',
+      isFrenchPage ? 'Bonjour,' : 'Beste Customer Service,',
       '',
-      'Graag ontvang ik onderstaande producten:',
+      isFrenchPage ? 'Je souhaite recevoir les produits suivants :' : 'Graag ontvang ik onderstaande producten:',
       ''
     ];
 
     products.forEach(function (product) {
-      const unit = product.quantity === 1 ? 'besteleenheid' : 'besteleenheden';
+      const unit = isFrenchPage
+        ? (product.quantity === 1 ? 'unité de commande' : 'unités de commande')
+        : (product.quantity === 1 ? 'besteleenheid' : 'besteleenheden');
+      const pieces = isFrenchPage ? 'pièces par unité de commande' : 'stuks per besteleenheid';
+      const name = isFrenchPage ? product.name : product.mailName;
       lines.push(
-        `${product.code} - ${product.brand} ${product.mailName} - ${product.quantity} ${unit} (${product.packSize} stuks per besteleenheid)`
+        `${product.code} - ${product.brand} ${name} - ${product.quantity} ${unit} (${product.packSize} ${pieces})`
       );
     });
 
-    lines.push('');
-    lines.push('Klantgegevens:');
+    lines.push('', isFrenchPage ? 'Coordonnées :' : 'Klantgegevens:');
+    const unavailable = isFrenchPage ? 'Non renseigné' : 'Niet automatisch beschikbaar';
+    const fields = [
+      [isFrenchPage ? 'Numéro client' : 'Klantnummer', customer.number],
+      [isFrenchPage ? 'Nom' : 'Naam', customer.name],
+      [isFrenchPage ? 'Entreprise' : 'Bedrijf', customer.company],
+      [isFrenchPage ? 'Téléphone' : 'Telefoonnummer', customer.phone]
+    ];
+    fields.forEach(function ([label, value]) {
+      lines.push(`${label}: ${value || unavailable}`);
+    });
 
-    lines.push(
-      `Klantnummer: ${
-        customer.number ||
-        'Niet automatisch beschikbaar'
-      }`
-    );
-
-    lines.push(
-      `Naam: ${
-        customer.name ||
-        'Niet automatisch beschikbaar'
-      }`
-    );
-
-    lines.push(
-      `Bedrijf: ${
-        customer.company ||
-        'Niet automatisch beschikbaar'
-      }`
-    );
-
-    lines.push(
-      `Telefoonnummer: ${
-        customer.phone ||
-        'Niet automatisch beschikbaar'
-      }`
-    );
-
-    lines.push('');
-    lines.push('Met vriendelijke groet,');
-
+    lines.push('', isFrenchPage ? 'Cordialement,' : 'Met vriendelijke groet,');
     if (customer.name) {
       lines.push(customer.name);
     }
@@ -486,7 +474,7 @@
       if (imagePlaceholder) {
         imagePlaceholder.textContent =
           card.dataset.brand ||
-          'Geen afbeelding';
+          (card.lang === 'fr-BE' ? 'Aucune image' : 'Geen afbeelding');
 
         imagePlaceholder.style.display =
           'flex';
