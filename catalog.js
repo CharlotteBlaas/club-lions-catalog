@@ -5,12 +5,27 @@
     return;
   }
 
-  const selectedProducts = {};
+  const selectedProducts = Object.create(null);
+
+  const categoriesByAssortment = new Map([
+    ['alleen hmc', ['hmc-benl', 'hmc-befr']],
+    ['alleen mrc + pipe', ['shortfiller-benl', 'shortfiller-befr', 'pijptabak-benl', 'pijptabak-befr']],
+    ['alle categorieen', [
+      'hmc-benl', 'hmc-befr', 'shortfiller-benl', 'shortfiller-befr',
+      'pijptabak-benl', 'pijptabak-befr'
+    ]]
+  ]);
+
+  const assortmentNavigation = catalog.querySelector('.cl-assortment__categories');
+  const categoryButtons = catalog.querySelectorAll('[data-assortment-target]');
+  const assortmentStatus = catalog.querySelector('.cl-assortment__status');
+  const brandGrid = catalog.querySelector('.cl-brand-grid');
+  const summary = catalog.querySelector('.cl-summary');
 
   /*
-   * PAS DIT E-MAILADRES AAN
+   * Vul het definitieve adres van Customer Service in voordat de mailknop wordt gebruikt.
    */
-  const mailTo = 'bestellingen@example.com';
+  const mailTo = '';
 
   const baseMailSubject = 'Bestelaanvraag Club Lions';
 
@@ -109,10 +124,7 @@
   }
 
   function getProductCode(card) {
-    const code =
-      (card.dataset.productCode || '').trim();
-
-    return code || 'XXXXXXX';
+    return card.dataset.productCode;
   }
 
   function getCardImage(card) {
@@ -136,43 +148,86 @@
     return Math.max(1, quantity || 1);
   }
 
+  function getAllowedCategories() {
+    const assortment = getPlaceholderValue('.cl-customer-data__assortment')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s*\+\s*/g, ' + ')
+      .replace(/\s+/g, ' ');
+
+    return categoriesByAssortment.get(assortment) || [];
+  }
+
+  const allowedCategories = getAllowedCategories();
+
   function showBrand(brand) {
     brandButtons.forEach(function (button) {
-      const isActive =
-        button.dataset.brandTarget === brand;
-
-      button.classList.toggle(
-        'is-active',
-        isActive
-      );
-
-      button.setAttribute(
-        'aria-pressed',
-        String(isActive)
-      );
+      const isActive = !button.hidden && button.dataset.brandTarget === brand;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-pressed', String(isActive));
     });
 
     brandSections.forEach(function (section) {
-      section.classList.toggle(
-        'is-active',
-        section.dataset.brandSection === brand
-      );
+      const isActive = section.dataset.brandSection === brand;
+      section.hidden = !isActive;
+      section.classList.toggle('is-active', isActive);
     });
   }
 
+  function showCategory(category) {
+    if (!allowedCategories.includes(category)) {
+      return;
+    }
+
+    categoryButtons.forEach(function (button) {
+      button.setAttribute('aria-pressed', String(button.dataset.assortmentTarget === category));
+    });
+
+    const availableBrands = new Set();
+
+    brandSections.forEach(function (section) {
+      section.querySelectorAll('.cl-product-card').forEach(function (card) {
+        const tabs = card.dataset.assortmentTabs || '';
+        card.hidden = !tabs.split(/\s+/).includes(category);
+        if (!card.hidden) {
+          availableBrands.add(section.dataset.brandSection);
+        }
+      });
+    });
+
+    brandButtons.forEach(function (button) {
+      button.hidden = !availableBrands.has(button.dataset.brandTarget);
+    });
+
+    const firstBrand = Array.from(brandButtons).find(function (button) {
+      return !button.hidden;
+    });
+    showBrand(firstBrand ? firstBrand.dataset.brandTarget : '');
+    brandGrid.hidden = !firstBrand;
+    assortmentStatus.hidden = Boolean(firstBrand);
+    if (!firstBrand) {
+      assortmentStatus.textContent = 'Er staan momenteel geen producten in dit tabblad.';
+    }
+    summary.hidden = !firstBrand && !Object.keys(selectedProducts).length;
+  }
+
   function addProductFromCard(card, quantity) {
-    if (!card) {
+    if (!card || card.hidden) {
       return;
     }
 
     const key = [
       card.dataset.brand || '',
-      card.dataset.productName || ''
+      card.dataset.mailName || card.dataset.productName || '',
+      getProductCode(card)
     ].join('::');
 
     selectedProducts[key] = {
       key: key,
       name: card.dataset.productName || '',
+      mailName: card.dataset.mailName || card.dataset.productName || '',
+      packSize: card.dataset.packSize,
       code: getProductCode(card),
       brand: card.dataset.brand || '',
       format: card.dataset.format || '',
@@ -207,6 +262,7 @@
     const products =
       Object.values(selectedProducts);
 
+    summary.hidden = brandGrid.hidden && products.length === 0;
     summaryList.innerHTML = '';
 
     if (!products.length) {
@@ -277,8 +333,9 @@
           <div class="cl-summary__product-meta">
             Artikelnummer: ${safeCode}<br>
             Merk: ${safeBrand}<br>
-            Formaat: ${safeFormat}<br>
-            Aantal kisten: ${product.quantity}
+            ${safeFormat ? 'Formaat: ' + safeFormat + '<br>' : ''}
+            Aantal besteleenheden: ${product.quantity}<br>
+            Stuks per besteleenheid: ${escapeHtml(product.packSize)}
           </div>
         </div>
 
@@ -294,6 +351,14 @@
 
       summaryList.appendChild(item);
     });
+
+    if (!mailTo) {
+      mailButton.href = '#';
+      mailButton.setAttribute('aria-disabled', 'true');
+      mailButton.style.pointerEvents = 'none';
+      mailButton.style.opacity = '0.5';
+      return;
+    }
 
     updateMailLink(products);
   }
@@ -322,8 +387,9 @@
     ];
 
     products.forEach(function (product) {
+      const unit = product.quantity === 1 ? 'besteleenheid' : 'besteleenheden';
       lines.push(
-        `${product.code} - ${product.name} - ${product.quantity} kist(en)`
+        `${product.code} - ${product.brand} ${product.mailName} - ${product.quantity} ${unit} (${product.packSize} stuks per besteleenheid)`
       );
     });
 
@@ -376,57 +442,8 @@
       );
   }
 
-  function ensureModalOrderControls() {
-    if (!modal || !modalSpecs) {
-      return null;
-    }
-
-    let controls = modal.querySelector(
-      '.cl-modal__order'
-    );
-
-    if (!controls) {
-      controls = document.createElement('div');
-
-      controls.className =
-        'cl-modal__order';
-
-      controls.innerHTML = `
-        <label class="cl-modal__quantity-label">
-          Aantal kisten
-
-          <input
-            class="cl-modal__quantity"
-            type="number"
-            min="1"
-            value="1"
-            inputmode="numeric"
-          >
-        </label>
-
-        <small class="cl-modal__quantity-note">
-          Een aantal van 1 staat voor 1 complete kist.
-        </small>
-
-        <button
-          class="cl-btn cl-modal__add"
-          type="button"
-        >
-          Toevoegen aan aanvraag
-        </button>
-      `;
-
-      modalSpecs.insertAdjacentElement(
-        'afterend',
-        controls
-      );
-    }
-
-    return controls;
-  }
-
   function openDetails(card) {
-    if (!modal || !card) {
+    if (!modal || !card || card.hidden) {
       return;
     }
 
@@ -482,47 +499,37 @@
         card.dataset.description || '';
     }
 
+    const french = card.lang === 'fr-BE';
+    const hmc = card.dataset.assortmentTabs.startsWith('hmc-');
+    const price = new Intl.NumberFormat(card.lang, {
+      style: 'currency',
+      currency: 'EUR'
+    }).format(Number(card.dataset.price));
+
+    modal.lang = card.lang;
     const specs = [
-      ['Merk', card.dataset.brand],
-
+      [french ? 'Marque' : 'Merk', card.dataset.brand],
+      [french ? 'Référence' : 'Artikelnummer', getProductCode(card)],
+      [french ? 'Format' : 'Sigarenformaat', card.dataset.format],
+      [french ? 'Origine' : 'Herkomst', card.dataset.origin],
       [
-        'Artikelnummer',
-        getProductCode(card)
+        hmc
+          ? (french ? 'Prix par cigare' : 'Prijs per sigaar')
+          : (french ? 'Prix par unité' : 'Prijs per eenheid'),
+        price
       ],
-
       [
-        'Sigarenformaat',
-        card.dataset.format
+        hmc
+          ? (french ? 'Cigares par unité de commande' : 'Sigaren per besteleenheid')
+          : (french ? 'Pièces par unité de commande' : 'Stuks per besteleenheid'),
+        card.dataset.packSize
       ],
-
-      [
-        'Besteleenheid',
-        'Per complete kist'
-      ],
-
-      ['Herkomst', card.dataset.origin],
-
-      [
-        'Type dekblad',
-        card.dataset.wrapper
-      ],
-
-      ['Omblad', card.dataset.binder],
-
-      [
-        'Binnengoed',
-        card.dataset.filler
-      ],
-
-      [
-        'Smaakprofiel',
-        card.dataset.flavour
-      ],
-
-      [
-        'Smaakbeleving',
-        card.dataset.strength
-      ]
+      [french ? 'Cape' : 'Type dekblad', card.dataset.wrapper],
+      [french ? 'Sous-cape' : 'Omblad', card.dataset.binder],
+      [french ? 'Tripe' : 'Binnengoed', card.dataset.filler],
+      [french ? 'Coupe' : 'Snede', card.dataset.cut],
+      [french ? 'Profil aromatique' : 'Smaakprofiel', card.dataset.flavour],
+      [french ? 'Intensité' : 'Sterkte', card.dataset.strength]
     ];
 
     if (modalSpecs) {
@@ -544,27 +551,24 @@
         .join('');
     }
 
-    const controls =
-      ensureModalOrderControls();
-
-    const modalQuantity = controls
-      ? controls.querySelector(
-          '.cl-modal__quantity'
-        )
-      : null;
-
-    if (modalQuantity) {
-      modalQuantity.value =
-        getCardQuantity(card);
-
-      modalQuantity.setAttribute(
-        'aria-label',
-        `Aantal kisten ${
-          card.dataset.productName ||
-          'product'
-        }`
-      );
-    }
+    const quantityLabel = french ? 'Quantité à commander' : 'Aantal besteleenheden';
+    const modalQuantity = modal.querySelector('.cl-modal__quantity');
+    modalQuantity.value = getCardQuantity(card);
+    modalQuantity.setAttribute('aria-label', quantityLabel + ' – ' + card.dataset.productName);
+    modal.querySelector('.cl-modal__quantity-label-text').textContent = quantityLabel;
+    const packSize = Number(card.dataset.packSize);
+    const packUnit = hmc
+      ? (french ? 'cigare' : 'sigaar')
+      : (french ? 'pièce' : 'stuk');
+    const packPlural = hmc
+      ? (french ? 'cigares' : 'sigaren')
+      : (french ? 'pièces' : 'stuks');
+    const packText = packSize + ' ' + (packSize === 1 ? packUnit : packPlural);
+    modal.querySelector('.cl-modal__quantity-note').textContent = french
+      ? `1 unité de commande = ${packText}`
+      : `1 besteleenheid = ${packText}`;
+    modal.querySelector('.cl-modal__add').textContent = french ? 'Ajouter à la demande' : 'Toevoegen aan aanvraag';
+    modalClose.setAttribute('aria-label', french ? 'Fermer les détails' : 'Details sluiten');
 
     modal.classList.add('is-open');
 
@@ -614,6 +618,17 @@
   catalog.addEventListener(
     'click',
     function (event) {
+      const categoryButton = event.target.closest('[data-assortment-target]');
+      if (categoryButton) {
+        showCategory(categoryButton.dataset.assortmentTarget);
+        return;
+      }
+
+      if (event.target.closest('.cl-summary__mail[aria-disabled="true"]')) {
+        event.preventDefault();
+        return;
+      }
+
       const brandButton =
         event.target.closest(
           '.cl-brand-card'
@@ -649,7 +664,7 @@
           '.cl-modal__add'
         );
 
-      if (brandButton) {
+      if (brandButton && !brandButton.hidden) {
         showBrand(
           brandButton.dataset.brandTarget
         );
@@ -805,29 +820,21 @@
 
           element.setAttribute(
             'aria-label',
-            `Bekijk details van ${productName}`
+            card.lang === 'fr-BE' ? `Voir les détails de ${productName}` : `Bekijk details van ${productName}`
           );
         }
       );
 
-      if (!card.dataset.productCode) {
-        card.dataset.productCode =
-          'XXXXXXX';
-      }
     });
 
-  brandButtons.forEach(
-    function (button) {
-      button.setAttribute(
-        'aria-pressed',
-        button.classList.contains(
-          'is-active'
-        )
-          ? 'true'
-          : 'false'
-      );
-    }
-  );
+  categoryButtons.forEach(function (button) {
+    button.hidden = !allowedCategories.includes(button.dataset.assortmentTarget);
+  });
+
+  if (allowedCategories.length) {
+    assortmentNavigation.hidden = false;
+    showCategory(allowedCategories[0]);
+  }
 
   if (modalClose) {
     modalClose.addEventListener(
