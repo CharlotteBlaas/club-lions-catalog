@@ -7,8 +7,10 @@
 
   const selectedProducts = Object.create(null);
 
+  const hmcCategories = ['hmc-benl', 'hmc-befr'];
   const categoriesByAssortment = new Map([
-    ['alleen hmc', ['hmc-benl', 'hmc-befr']],
+    ['hmc', hmcCategories],
+    ['alleen hmc', hmcCategories],
     ['alleen mrc + pipe', ['shortfiller-benl', 'shortfiller-befr', 'pijptabak-benl', 'pijptabak-befr']],
     ['alle categorieen', [
       'hmc-benl', 'hmc-befr', 'shortfiller-benl', 'shortfiller-befr',
