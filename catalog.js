@@ -338,7 +338,7 @@
 
   }
 
-  function downloadOrderEmail(products) {
+  function openOrderEmail(products) {
     const customer = getCustomerData();
 
     /*
@@ -389,49 +389,9 @@
       lines.push(customer.name);
     }
 
-    const eml = [
-      'X-Unsent: 1',
-      'MIME-Version: 1.0',
-      'Subject: ' + encodeEmailSubject(mailSubject),
-      'Content-Type: text/plain; charset=UTF-8',
-      'Content-Transfer-Encoding: base64',
-      '',
-      encodeEmailBase64(lines.join('\r\n')).match(/.{1,76}/g).join('\r\n'),
-      ''
-    ].join('\r\n');
-
-    const url = URL.createObjectURL(new Blob([eml], {type: 'message/rfc822'}));
-    const download = document.createElement('a');
-    download.href = url;
-    download.download = isFrenchPage ? 'demande-club-lions.eml' : 'aanvraag-club-lions.eml';
-    document.body.appendChild(download);
-    download.click();
-    download.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-
-  function encodeEmailBase64(value) {
-    const bytes = new TextEncoder().encode(value);
-    return btoa(Array.from(bytes, byte => String.fromCharCode(byte)).join(''));
-  }
-
-  function encodeEmailSubject(value) {
-    const encoder = new TextEncoder();
-    const parts = [];
-    let part = '';
-    let length = 0;
-    for (const character of value) {
-      const size = encoder.encode(character).length;
-      if (length + size > 42) {
-        parts.push(part);
-        part = '';
-        length = 0;
-      }
-      part += character;
-      length += size;
-    }
-    parts.push(part);
-    return parts.map(text => `=?UTF-8?B?${encodeEmailBase64(text)}?=`).join('\r\n ');
+    const subject = mailSubject.replace(/[\r\n]+/g, ' ');
+    window.location.href = 'mailto:?subject=' + encodeURIComponent(subject)
+      + '&body=' + encodeURIComponent(lines.join('\r\n'));
   }
 
   function openDetails(card) {
@@ -620,7 +580,7 @@
         event.preventDefault();
         const products = Object.values(selectedProducts);
         if (products.length) {
-          downloadOrderEmail(products);
+          openOrderEmail(products);
         }
         return;
       }
