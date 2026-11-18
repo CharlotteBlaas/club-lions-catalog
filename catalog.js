@@ -27,11 +27,6 @@
   const brandGrid = catalog.querySelector('.cl-brand-grid');
   const summary = catalog.querySelector('.cl-summary');
 
-  /*
-   * Vul het definitieve adres van Customer Service in voordat de mailknop wordt gebruikt.
-   */
-  const mailTo = '';
-
   const baseMailSubject = isFrenchPage ? 'Demande de commande Club Lions' : 'Bestelaanvraag Club Lions';
 
   const brandButtons =
@@ -274,30 +269,10 @@
     summary.hidden = brandGrid.hidden && products.length === 0;
     summaryList.innerHTML = '';
 
-    if (!products.length) {
-      emptyText.style.display = 'block';
-
-      mailButton.style.opacity = '0.5';
-      mailButton.style.pointerEvents = 'none';
-
-      mailButton.setAttribute(
-        'aria-disabled',
-        'true'
-      );
-
-      mailButton.href = '#';
-
-      return;
-    }
-
-    emptyText.style.display = 'none';
-
-    mailButton.style.opacity = '1';
-    mailButton.style.pointerEvents = 'auto';
-
-    mailButton.removeAttribute(
-      'aria-disabled'
-    );
+    const hasProducts = products.length > 0;
+    emptyText.style.display = hasProducts ? 'none' : 'block';
+    mailButton.disabled = !hasProducts;
+    mailButton.setAttribute('aria-disabled', String(!hasProducts));
 
     products.forEach(function (product) {
       const item = document.createElement('li');
@@ -361,18 +336,9 @@
       summaryList.appendChild(item);
     });
 
-    if (!mailTo) {
-      mailButton.href = '#';
-      mailButton.setAttribute('aria-disabled', 'true');
-      mailButton.style.pointerEvents = 'none';
-      mailButton.style.opacity = '0.5';
-      return;
-    }
-
-    updateMailLink(products);
   }
 
-  function updateMailLink(products) {
+  function downloadOrderEmail(products) {
     const customer = getCustomerData();
 
     /*
@@ -423,15 +389,49 @@
       lines.push(customer.name);
     }
 
-    mailButton.href =
-      'mailto:' +
-      encodeURIComponent(mailTo) +
-      '?subject=' +
-      encodeURIComponent(mailSubject) +
-      '&body=' +
-      encodeURIComponent(
-        lines.join('\n')
-      );
+    const eml = [
+      'X-Unsent: 1',
+      'MIME-Version: 1.0',
+      'Subject: ' + encodeEmailSubject(mailSubject),
+      'Content-Type: text/plain; charset=UTF-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      encodeEmailBase64(lines.join('\r\n')).match(/.{1,76}/g).join('\r\n'),
+      ''
+    ].join('\r\n');
+
+    const url = URL.createObjectURL(new Blob([eml], {type: 'message/rfc822'}));
+    const download = document.createElement('a');
+    download.href = url;
+    download.download = isFrenchPage ? 'demande-club-lions.eml' : 'aanvraag-club-lions.eml';
+    document.body.appendChild(download);
+    download.click();
+    download.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function encodeEmailBase64(value) {
+    const bytes = new TextEncoder().encode(value);
+    return btoa(Array.from(bytes, byte => String.fromCharCode(byte)).join(''));
+  }
+
+  function encodeEmailSubject(value) {
+    const encoder = new TextEncoder();
+    const parts = [];
+    let part = '';
+    let length = 0;
+    for (const character of value) {
+      const size = encoder.encode(character).length;
+      if (length + size > 42) {
+        parts.push(part);
+        part = '';
+        length = 0;
+      }
+      part += character;
+      length += size;
+    }
+    parts.push(part);
+    return parts.map(text => `=?UTF-8?B?${encodeEmailBase64(text)}?=`).join('\r\n ');
   }
 
   function openDetails(card) {
@@ -616,8 +616,12 @@
         return;
       }
 
-      if (event.target.closest('.cl-summary__mail[aria-disabled="true"]')) {
+      if (event.target.closest('.cl-summary__mail')) {
         event.preventDefault();
+        const products = Object.values(selectedProducts);
+        if (products.length) {
+          downloadOrderEmail(products);
+        }
         return;
       }
 
